@@ -60,9 +60,44 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(resp)
 }
 
+func validateChirp(w http.ResponseWriter, r *http.Request) string {
+	type reqParameters struct {
+		Body string `json:"body"`
+	}
+
+	type resp struct {
+		ID   int    `json:"id"`
+		Body string `json:"body"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := reqParameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		return nil
+	}
+	if len(params.Body) > 140 {
+		respondWithError(w, 400, "Chirp is too long")
+		return nil
+	}
+
+	clean := params.Body
+	clean = strings.ReplaceAll(clean, "kerfuffle", "****")
+	clean = strings.ReplaceAll(clean, "sharbert", "****")
+	clean = strings.ReplaceAll(clean, "fornax", "****")
+
+	clean = strings.ReplaceAll(clean, "Kerfuffle", "****")
+	clean = strings.ReplaceAll(clean, "Sharbert", "****")
+	clean = strings.ReplaceAll(clean, "Fornax", "****")
+	return clean
+}
+
 func (cfg *apiConfig) Reset(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits = 0
 }
+
+var id int = 1
 
 func main() {
 	var serverMux http.ServeMux = *http.NewServeMux()
@@ -78,40 +113,14 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	serverMux.HandleFunc("POST /api/validate_chirp", func(w http.ResponseWriter, r *http.Request) {
-		type reqParameters struct {
-			Body string `json:"body"`
-		}
+	serverMux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) {
 
-		type resClean struct {
-			Body string `json:"cleaned_body"`
-		}
-
-		decoder := json.NewDecoder(r.Body)
-		params := reqParameters{}
-		err := decoder.Decode(&params)
-		if err != nil {
-			respondWithError(w, 500, "Something went wrong")
-			return
-		}
-		if len(params.Body) > 140 {
-			respondWithError(w, 400, "Chirp is too long")
-			return
-		}
-
-		clean := params.Body
-		clean = strings.ReplaceAll(clean, "kerfuffle", "****")
-		clean = strings.ReplaceAll(clean, "sharbert", "****")
-		clean = strings.ReplaceAll(clean, "fornax", "****")
-
-		clean = strings.ReplaceAll(clean, "Kerfuffle", "****")
-		clean = strings.ReplaceAll(clean, "Sharbert", "****")
-		clean = strings.ReplaceAll(clean, "Fornax", "****")
-
-		cleanResp := resClean{
+		response := resp{
+			ID:   id,
 			Body: clean,
 		}
-		respondWithJSON(w, 200, cleanResp)
+		id++
+		respondWithJSON(w, 201, response)
 	})
 
 	serverMux.HandleFunc("GET /admin/metrics", apiCfg.Report)
