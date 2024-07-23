@@ -41,11 +41,23 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	if err != nil {
 		return Chirp{}, err
 	}
+
 	os.WriteFile(db.path, []byte(json), 0)
+	return ch, nil
 }
 
 // GetChirps returns all chirps in the database
-func (db *DB) GetChirps() ([]Chirp, error)
+func (db *DB) GetChirps() ([]Chirp, error) {
+	dbs, err := db.loadDB()
+	if err != nil {
+		return []Chirp{}, err
+	}
+	chirps := make([]Chirp, len(dbs.Chirps))
+	for _, v := range dbs.Chirps {
+		chirps = append(chirps, v)
+	}
+	return chirps, nil
+}
 
 // ensureDB creates a new database file if it doesn't exist
 func (db *DB) ensureDB() error {
