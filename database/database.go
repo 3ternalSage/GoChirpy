@@ -88,4 +88,11 @@ func (db *DB) loadDB() (DBStructure, error) {
 }
 
 // writeDB writes the database file to disk
-func (db *DB) writeDB(dbStructure DBStructure) error
+func (db *DB) writeDB(dbStructure DBStructure) error {
+	write, err := json.Marshal(dbStructure)
+	if err != nil {
+		return err
+	}
+	os.WriteFile(db.path, write, 0)
+	return nil
+}
