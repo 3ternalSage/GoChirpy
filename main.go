@@ -60,13 +60,13 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	w.Write(resp)
 }
 
-func validateChirp(w http.ResponseWriter, r *http.Request) string {
-	type reqParameters struct {
-		Body string `json:"body"`
-	}
+type resp struct {
+	ID   int    `json:"id"`
+	Body string `json:"body"`
+}
 
-	type resp struct {
-		ID   int    `json:"id"`
+func validateChirp(w http.ResponseWriter, r *http.Request) (string, error) {
+	type reqParameters struct {
 		Body string `json:"body"`
 	}
 
@@ -75,11 +75,11 @@ func validateChirp(w http.ResponseWriter, r *http.Request) string {
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, 500, "Something went wrong")
-		return nil
+		return "", err
 	}
 	if len(params.Body) > 140 {
 		respondWithError(w, 400, "Chirp is too long")
-		return nil
+		return "", nil
 	}
 
 	clean := params.Body
@@ -90,7 +90,7 @@ func validateChirp(w http.ResponseWriter, r *http.Request) string {
 	clean = strings.ReplaceAll(clean, "Kerfuffle", "****")
 	clean = strings.ReplaceAll(clean, "Sharbert", "****")
 	clean = strings.ReplaceAll(clean, "Fornax", "****")
-	return clean
+	return clean, nil
 }
 
 func (cfg *apiConfig) Reset(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +115,10 @@ func main() {
 
 	serverMux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) {
 
+		clean, err := validateChirp(w, r)
+		if err != nil {
+			return
+		}
 		response := resp{
 			ID:   id,
 			Body: clean,
