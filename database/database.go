@@ -37,17 +37,25 @@ func (db *DB) CreateChirp(body string) (Chirp, error) {
 	ch := Chirp{
 		Body: body,
 	}
-	json, err := json.Marshal(ch)
+	chirps, err := db.GetChirps()
 	if err != nil {
 		return Chirp{}, err
 	}
-
-	os.WriteFile(db.path, []byte(json), 0)
+	chirps = append(chirps, ch)
+	dbs := DBStructure{}
+	for i, c := range chirps {
+		dbs.Chirps[i] = c
+	}
+	db.writeDB(dbs)
 	return ch, nil
 }
 
 // GetChirps returns all chirps in the database
 func (db *DB) GetChirps() ([]Chirp, error) {
+	err := db.ensureDB()
+	if err != nil {
+		return []Chirp{}, err
+	}
 	dbs, err := db.loadDB()
 	if err != nil {
 		return []Chirp{}, err
