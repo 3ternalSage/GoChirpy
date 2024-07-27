@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/3ternalSage/GoChirpy/database"
 )
 
 type apiConfig struct {
@@ -69,11 +71,12 @@ func validateChirp(w http.ResponseWriter, r *http.Request) (string, error) {
 	type reqParameters struct {
 		Body string `json:"body"`
 	}
-
 	decoder := json.NewDecoder(r.Body)
 	params := reqParameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
+		print("Decode error")
+		print(err)
 		respondWithError(w, 500, "Something went wrong")
 		return "", err
 	}
@@ -100,6 +103,8 @@ func (cfg *apiConfig) Reset(w http.ResponseWriter, r *http.Request) {
 var id int = 1
 
 func main() {
+	var databasePath string = "database.json"
+
 	var serverMux http.ServeMux = *http.NewServeMux()
 	var server http.Server
 	var apiCfg apiConfig
@@ -124,7 +129,41 @@ func main() {
 			Body: clean,
 		}
 		id++
+		db, err := database.NewDB(databasePath)
+		if err != nil {
+			fmt.Print(err)
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		_, err = db.CreateChirp(response.Body, response.ID)
+		if err != nil {
+			fmt.Print("Creating chirp failed")
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
 		respondWithJSON(w, 201, response)
+	})
+
+	serverMux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) {
+		db, err := database.NewDB(databasePath)
+		if err != nil {
+			fmt.Print(err)
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		chirps, err := db.GetChirps()
+		if err != nil {
+			fmt.Print(err)
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		response, err := json.Marshal(chirps)
+		if err != nil {
+			fmt.Print(err)
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		respondWithJSON(w, 200, response)
 	})
 
 	serverMux.HandleFunc("GET /admin/metrics", apiCfg.Report)
