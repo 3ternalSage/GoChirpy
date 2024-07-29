@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/3ternalSage/GoChirpy/database"
@@ -11,6 +12,11 @@ import (
 
 type apiConfig struct {
 	fileserverHits int
+}
+
+type Chirp struct {
+	ID   int    `json:"id"`
+	Body string `json:"body"`
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -104,6 +110,11 @@ var id int = 1
 
 func main() {
 	var databasePath string = "database.json"
+	db, err := database.NewDB(databasePath)
+	if err != nil {
+		fmt.Print(err)
+		return
+	}
 
 	var serverMux http.ServeMux = *http.NewServeMux()
 	var server http.Server
@@ -119,7 +130,6 @@ func main() {
 	})
 
 	serverMux.HandleFunc("POST /api/chirps", func(w http.ResponseWriter, r *http.Request) {
-
 		clean, err := validateChirp(w, r)
 		if err != nil {
 			return
@@ -129,13 +139,7 @@ func main() {
 			Body: clean,
 		}
 		id++
-		db, err := database.NewDB(databasePath)
-		if err != nil {
-			fmt.Print(err)
-			respondWithError(w, 500, "Something went wrong")
-			return
-		}
-		_, err = db.CreateChirp(response.Body, response.ID)
+		_, err = db.CreateChirp(response.Body)
 		if err != nil {
 			fmt.Print("Creating chirp failed")
 			respondWithError(w, 500, "Something went wrong")
@@ -145,25 +149,25 @@ func main() {
 	})
 
 	serverMux.HandleFunc("GET /api/chirps", func(w http.ResponseWriter, r *http.Request) {
-		db, err := database.NewDB(databasePath)
+		dbChirps, err := db.GetChirps()
 		if err != nil {
 			fmt.Print(err)
 			respondWithError(w, 500, "Something went wrong")
 			return
 		}
-		chirps, err := db.GetChirps()
-		if err != nil {
-			fmt.Print(err)
-			respondWithError(w, 500, "Something went wrong")
-			return
+		chirps := []Chirp{}
+		for _, dbChirp := range dbChirps {
+			chirps = append(chirps, Chirp{
+				ID:   dbChirp.ID,
+				Body: dbChirp.Body,
+			})
 		}
-		response, err := json.Marshal(chirps)
-		if err != nil {
-			fmt.Print(err)
-			respondWithError(w, 500, "Something went wrong")
-			return
-		}
-		respondWithJSON(w, 200, response)
+
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].ID < chirps[j].ID
+		})
+
+		respondWithJSON(w, 200, chirps)
 	})
 
 	serverMux.HandleFunc("GET /admin/metrics", apiCfg.Report)
